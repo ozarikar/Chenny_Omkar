@@ -39,55 +39,57 @@ def extract_structured_record(line: str) -> SectionRow:
       - Validate the result with SectionRow(**data).
     """
     # Create a prompt that explains what we want to extract
-    prompt = f"""Extract all structured course information from the given text line. 
-Always return output strictly as a single JSON object following the exact schema below — no extra text or commentary.
+    prompt = f"""
+        Extract all structured course information from the given text line. 
+        Always return output strictly as a single JSON object following the exact schema below — no extra text or commentary.
 
-Input text:
-{line}
+        Input text:
+        {line}
 
-Schema and rules:
-{{
-  "program": string,                # Exactly 3 uppercase letters (e.g., CSC, MAT, ECO). If not found, return null.
-  "number": string,                 # 3 digits optionally followed by 'L' (e.g., 210, 210L). If not found, return null.
-  "section": string or null,        # Single lowercase letter (e.g., 'a') or null if missing.
-  "title": string or null,          # Full course title.
-  "credits": float or null,         # e.g., 3.0, 4.0. Must be numeric.
-  "days": string or null,           # Pattern like '-M-W-F-' or '--T-R--'. Return null if it shows '-------'.
-  "times": string or null,          # e.g., '9:00-9:50AM'. Return null if 'TBA'.
-  "faculty": string or null,        # Instructor’s full name.
-  "room": string or null,           # Format 'BUILDING ROOM' (e.g., 'OLIN 208'). Return null if 'TBA'.
-  "tags": string or null            # Optional classification codes separated by commas, e.g., 'E1,A'. Null if none.
-}}
+        Schema and rules:
+        {{
+        "program": string,                # Exactly 3 uppercase letters (e.g., CSC, MAT, ECO). If not found, return null.
+        "number": string,                 # 3 digits optionally followed by 'L' (e.g., 210, 210L). If not found, return null.
+        "section": string or null,        # Single lowercase letter (e.g., 'a') or null if missing.
+        "title": string or null,          # Full course title.
+        "credits": float or null,         # e.g., 3.0, 4.0. Must be numeric.
+        "days": string or null,           # Pattern like '-M-W-F-' or '--T-R--'. Return null if it shows '-------'.
+        "times": string or null,          # e.g., '9:00-9:50AM'. Return null if 'TBA'.
+        "faculty": string or null,        # Instructor’s full name.
+        "room": string or null,           # Format 'BUILDING ROOM' (e.g., 'OLIN 208'). Return null if 'TBA'.
+        "tags": string or null            # Optional classification codes separated by commas, e.g., 'E1,A'. Null if none.
+        }}
 
-Important rules:
-- Always return JSON with double quotes around property names and string values.
-- Never include explanations or comments in output.
-- If something is missing or unclear, set the value to null rather than omitting the key.
-- Preserve capitalization and punctuation in text fields like 'title' and 'faculty'.
-- Do not guess field values; derive them only from the input text.
+        Important rules:
+        - Always return JSON with double quotes around property names and string values.
+        - Never include explanations or comments in output.
+        - If something is missing or unclear, set the value to null rather than omitting the key.
+        - Preserve capitalization and punctuation in text fields like 'title' and 'faculty'.
+        - Do not guess field values; derive them only from the input text.
 
-Example Input:
-"CSC 210L a Intro to Data Science 4.0 -M-W-F- 10:00-10:50AM Smith, John OLIN 208 E1,A"
+        Example Input:
+        "CSC 210L a Intro to Data Science 4.0 -M-W-F- 10:00-10:50AM Smith, John OLIN 208 E1,A"
 
-Example Output:
-{{
-  "program": "CSC",
-  "number": "210L",
-  "section": "a",
-  "title": "Intro to Data Science",
-  "credits": 4.0,
-  "days": "-M-W-F-",
-  "times": "10:00-10:50AM",
-  "faculty": "Smith, John",
-  "room": "OLIN 208",
-  "tags": "E1,A"
-}}
-"""
+        Example Output:
+        {{
+        "program": "CSC",
+        "number": "210L",
+        "section": "a",
+        "title": "Intro to Data Science",
+        "credits": 4.0,
+        "days": "-M-W-F-",
+        "times": "10:00-10:50AM",
+        "faculty": "Smith, John",
+        "room": "OLIN 208",
+        "tags": "E1,A"
+        }}
+        """
+
 
     try:
         # Call Ollama model
         response = chat(
-            model='granite3.2:2b',  # You can change this to other models like gemma3:4b
+            model='llama3.1:8b',  # You can change this to other models like gemma3:4b
             messages=[{'role': 'user', 'content': prompt}],
             options={'temperature': 0},
             format=SectionRow.model_json_schema()
@@ -114,8 +116,7 @@ def process_file(in_path: str, out_path: str):
         writer.writerow(SectionRow.model_fields.keys())
 
         count = 0
-        limit = 5
-        print(limit) # set a small limit for debugging; change to -1 for no limit ...
+        limit = 5 # set a small limit for debugging; change to -1 for no limit ...
 
         for line in fin:
             if not line.strip():
@@ -148,7 +149,7 @@ def process_file(in_path: str, out_path: str):
 
 if __name__ == "__main__":
     # Process training data (Part 1)
-    process_file("raw/testing.txt", "out/sections_train.csv")
+    process_file("raw/training.txt", "out/sections_train.csv")
 
     # Later, after refinement, uncomment to process the test set (Part 2)
     # process_file("raw/testing.txt", "out/sections_test.csv")

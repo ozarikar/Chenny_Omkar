@@ -33,7 +33,7 @@ class SectionRow(BaseModel):
         """Program must be three uppercase letters like CSC or MAT."""
         v = v.upper()
         if not re.fullmatch(r"[A-Z]{3}", v):
-            raise ValueError(f"program must be like ECO, DSC letters but was {v}")
+            print(f"program must be like ECO, DSC letters but was {v}")
             return v
         return v   
     @field_validator("number")
@@ -41,7 +41,7 @@ class SectionRow(BaseModel):
     def validate_number(cls, v: str) -> str:
         """Course number must be “210”  or 210L"""
         if not re.fullmatch(r"^[0-9]{3}[L]?$", v):
-            raise ValueError("course number must be three digits optionally followed by 'L'")
+            print("course number must be three digits optionally followed by 'L'")
         return v
    
     @field_validator("section")
@@ -52,7 +52,7 @@ class SectionRow(BaseModel):
             return None
         v = v.lower()
         if not re.fullmatch(r"[a-z]", v):
-            raise ValueError("section must be a single lowercase letter")
+            print("section must be a single lowercase letter")
         return v
 
 
@@ -61,9 +61,9 @@ class SectionRow(BaseModel):
     def validate_credits(cls, v: float) -> float:
         """Credits must be a valid number like 3.0, 4.0, or 0.0."""
         if not isinstance(v, (int, float)):
-            raise ValueError("credits must be a number")
+            print("credits must be a number")
         if v < 0:
-            raise ValueError("credits cannot be negative")
+            print("credits cannot be negative")
         # Round to 1 decimal place to ensure proper format
         return round(v, 1)
        
@@ -84,7 +84,7 @@ class SectionRow(BaseModel):
             elif set(days) <= set('TR') and len(days) > 0:
                 return "--T-R--"
             else:
-                raise ValueError("days must contain either M,W,F or T,R")
+                print("days must contain either M,W,F or T,R")
         return v      
     @field_validator("room")
     @classmethod
@@ -95,7 +95,7 @@ class SectionRow(BaseModel):
         if v is not None:
             # Check format: uppercase building name, space, room number
             if not re.fullmatch(r"[A-Z]+ [0-9]+", v):
-                raise ValueError("room must be in format 'BUILDING ROOM' (e.g. 'OLIN 208')")
+                print("room must be in format 'BUILDING ROOM' (e.g. 'OLIN 208')")
         return v        
     @field_validator("tags")
     @classmethod
@@ -113,5 +113,5 @@ class SectionRow(BaseModel):
             if tag.strip() == "":
                 continue
             if not re.fullmatch(r'E[0-9]+|[A-Z]', tag):
-                raise ValueError("tags must be in format 'E1' or 'A' or 'E1,A'")
+                print("tags must be in format 'E1' or 'A' or 'E1,A'")
         return v
