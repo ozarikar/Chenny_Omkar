@@ -24,6 +24,7 @@ and scoring work before adding your model logic.
 import csv
 from pydantic import ValidationError
 from schema import SectionRow
+from ollama import chat
 
 
 def extract_structured_record(line: str) -> SectionRow:
@@ -37,37 +38,68 @@ def extract_structured_record(line: str) -> SectionRow:
       - Parse the model's JSON response.
       - Validate the result with SectionRow(**data).
     """
-    prompt = f"""Extract the course information from the following text into a JSON object that matches this schema:
-                 program:  str                   # Three-letter uppercase code (e.g. CSC, MAT).
-                number:   str	                  #	Course number (e.g. “210” or “210L”).
-                section:  Optional[str] = None  # Single lowercase letter (e.g. a, b).
-                title:	  str	                  # Course title in title case.
-                credits:	float	                #	Numeric values such as 3.0, 4.0, or 0.0.
-                days:	    Optional[str] = None  #	Use None if “-------”.
-                times:	  Optional[str] = None  #	Use None if “TBA”.
-                room:	    Optional[str] = None  #	Building and room (e.g. “OLIN 208”). Use None if “TBA”.
-                faculty:	str	                  #	Instructor name.
-                tags:	    Optional[str] = None  #	Optional classification codes such as E1 or E1,A.
-                text: {line}
-                """
-    
+    # Create a prompt that explains what we want to extract
+    prompt = f"""Extract all structured course information from the given text line. 
+Always return output strictly as a single JSON object following the exact schema below — no extra text or commentary.
 
-    # The placeholder below produces an "empty" valid record.
-    # It lets you test the pipeline without errors,
-    # but it will score 0.00 on the evaluation.
-    data = {
-        "program": "",
-        "number": "",
-        "section": "",
-        "title": "",
-        "credits": 0.0,
-        "days": "",
-        "times": "",
-        "room": "",
-        "faculty": "",
-        "tags": None,
-    }
-    return SectionRow(**data)
+Input text:
+{line}
+
+Schema and rules:
+{{
+  "program": string,                # Exactly 3 uppercase letters (e.g., CSC, MAT, ECO). If not found, return null.
+  "number": string,                 # 3 digits optionally followed by 'L' (e.g., 210, 210L). If not found, return null.
+  "section": string or null,        # Single lowercase letter (e.g., 'a') or null if missing.
+  "title": string or null,          # Full course title.
+  "credits": float or null,         # e.g., 3.0, 4.0. Must be numeric.
+  "days": string or null,           # Pattern like '-M-W-F-' or '--T-R--'. Return null if it shows '-------'.
+  "times": string or null,          # e.g., '9:00-9:50AM'. Return null if 'TBA'.
+  "faculty": string or null,        # Instructor’s full name.
+  "room": string or null,           # Format 'BUILDING ROOM' (e.g., 'OLIN 208'). Return null if 'TBA'.
+  "tags": string or null            # Optional classification codes separated by commas, e.g., 'E1,A'. Null if none.
+}}
+
+Important rules:
+- Always return JSON with double quotes around property names and string values.
+- Never include explanations or comments in output.
+- If something is missing or unclear, set the value to null rather than omitting the key.
+- Preserve capitalization and punctuation in text fields like 'title' and 'faculty'.
+- Do not guess field values; derive them only from the input text.
+
+Example Input:
+"CSC 210L a Intro to Data Science 4.0 -M-W-F- 10:00-10:50AM Smith, John OLIN 208 E1,A"
+
+Example Output:
+{{
+  "program": "CSC",
+  "number": "210L",
+  "section": "a",
+  "title": "Intro to Data Science",
+  "credits": 4.0,
+  "days": "-M-W-F-",
+  "times": "10:00-10:50AM",
+  "faculty": "Smith, John",
+  "room": "OLIN 208",
+  "tags": "E1,A"
+}}
+"""
+
+    try:
+        # Call Ollama model
+        response = chat(
+            model='granite3.2:2b',  # You can change this to other models like gemma3:4b
+            messages=[{'role': 'user', 'content': prompt}],
+            options={'temperature': 0},
+            format=SectionRow.model_json_schema()
+        )
+        
+        # Parse and validate the response
+        data = response.message.content
+        return SectionRow.model_validate_json(data)
+        
+    except Exception as e:
+        print(f"Error during Ollama chat call: {e}")
+        raise
 
 
 def process_file(in_path: str, out_path: str):
@@ -82,17 +114,17 @@ def process_file(in_path: str, out_path: str):
         writer.writerow(SectionRow.model_fields.keys())
 
         count = 0
-        limit = 5  # set a small limit for debugging; change to -1 for no limit ...
+        limit = 5
+        print(limit) # set a small limit for debugging; change to -1 for no limit ...
 
         for line in fin:
             if not line.strip():
                 continue
-            if count >= limit:  # or you could just remove these two lines for no limit
-                break
-
+            #if count >= limit:  # or you could just remove these two lines for no limit
+            #    break
             try:
                 record = extract_structured_record(line)
-
+                print(f"Processed line {count + 1}: {record}")
                 # Optional: view the validated record for debugging
                 # print(record.model_dump_json(indent=2))
 
@@ -116,7 +148,7 @@ def process_file(in_path: str, out_path: str):
 
 if __name__ == "__main__":
     # Process training data (Part 1)
-    process_file("raw/training.txt", "out/sections_train.csv")
+    process_file("raw/testing.txt", "out/sections_train.csv")
 
     # Later, after refinement, uncomment to process the test set (Part 2)
     # process_file("raw/testing.txt", "out/sections_test.csv")

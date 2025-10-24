@@ -31,10 +31,11 @@ class SectionRow(BaseModel):
     @classmethod
     def validate_program(cls, v: str) -> str:
         """Program must be three uppercase letters like CSC or MAT."""
+        v = v.upper()
         if not re.fullmatch(r"[A-Z]{3}", v):
-            raise ValueError("program must be three uppercase letters")
-        return v
-    
+            raise ValueError(f"program must be like ECO, DSC letters but was {v}")
+            return v
+        return v   
     @field_validator("number")
     @classmethod
     def validate_number(cls, v: str) -> str:
@@ -42,17 +43,19 @@ class SectionRow(BaseModel):
         if not re.fullmatch(r"^[0-9]{3}[L]?$", v):
             raise ValueError("course number must be three digits optionally followed by 'L'")
         return v
-    
+   
     @field_validator("section")
     @classmethod
     def validate_section(cls, v: Optional[str]) -> Optional[str]:
         """Section must be a single lowercase letter like 'a' or 'b'."""
         if v is None:
             return None
+        v = v.lower()
         if not re.fullmatch(r"[a-z]", v):
             raise ValueError("section must be a single lowercase letter")
         return v
-        
+
+
     @field_validator("credits")
     @classmethod
     def validate_credits(cls, v: float) -> float:
@@ -63,7 +66,7 @@ class SectionRow(BaseModel):
             raise ValueError("credits cannot be negative")
         # Round to 1 decimal place to ensure proper format
         return round(v, 1)
-        
+       
     @field_validator("days")
     @classmethod
     def validate_days(cls, v: Optional[str]) -> Optional[str]:
@@ -82,20 +85,7 @@ class SectionRow(BaseModel):
                 return "--T-R--"
             else:
                 raise ValueError("days must contain either M,W,F or T,R")
-        return v
-        
-    @field_validator("times")
-    @classmethod
-    def validate_times(cls, v: Optional[str]) -> Optional[str]:
-        """Times must be in format like '8:00-11:00AM' or '11:30-12:30PM' or None if 'TBA'."""
-        if v == "TBA":
-            return None
-        if v is not None:
-            # Check time format H:MM-H:MMAM/PM
-            if not re.fullmatch(r"([1-9]|1[0-2]):[0-5][0-9]-([1-9]|1[0-2]):[0-5][0-9)(AM|PM)", v):
-                raise ValueError("times must be in format 'H:MM-H:MMAM' or 'H:MM-H:MMPM' (12-hour)")
-        return v
-        
+        return v      
     @field_validator("room")
     @classmethod
     def validate_room(cls, v: Optional[str]) -> Optional[str]:
@@ -106,20 +96,22 @@ class SectionRow(BaseModel):
             # Check format: uppercase building name, space, room number
             if not re.fullmatch(r"[A-Z]+ [0-9]+", v):
                 raise ValueError("room must be in format 'BUILDING ROOM' (e.g. 'OLIN 208')")
-        return v
-        
+        return v        
     @field_validator("tags")
     @classmethod
     def validate_tags(cls, v: Optional[str]) -> Optional[str]:
         """Tags must be in format like 'E1' or 'E1,A' or None."""
-        if v is None:
+        if v is None or v.strip().lower() == "none" or v.strip() == "":
             return None
         # Split by comma if multiple tags
         tags = [tag.strip() for tag in v.split(',')]
+        print(f"Actual Values: {tags}")
         for tag in tags:
             # Each tag should be either:
             # - E followed by a number (E1, E2, etc.)
             # - A single uppercase letter (A, B, etc.)
+            if tag.strip() == "":
+                continue
             if not re.fullmatch(r'E[0-9]+|[A-Z]', tag):
                 raise ValueError("tags must be in format 'E1' or 'A' or 'E1,A'")
         return v
