@@ -145,7 +145,18 @@ def validate_sql(sql_query):
     # Validate table names
     for table in tables_in_query:
         if table not in valid_tables:
-            return False    
+            return False
+    prompt = f"""You are an expert SQL validator.
+                Determine if the following SQL query is syntactically correct.
+                if it is safe and not harmful,
+                Respond with 'yes' if it is correct, otherwise respond with 'no'.
+                SQL Query: "{sql_query}"""
+    response = ollama.chat(
+        model="gemma3:4b",
+        messages=[{"role": "user", "content": prompt}])
+    answer = response['message']['content'].strip().lower()
+    if "no" in answer:
+        return False
     return True
 
 
@@ -175,7 +186,10 @@ def to_output(result, queries):
         output = response['message']['content'].strip()
     except Exception:
         # Fallback short summary if LLM call fails
-        output = f"{full_result} rows returned for the query."
+        if full_result.strip() == "":
+            output = "No results found for the query."
+        else:
+            output = f"Query could not be summarized. Raw results: {full_result}"
     return output
 
 def main():
