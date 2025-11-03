@@ -1,5 +1,5 @@
 # We will use mysql.connector as our API to interact with the MySQL database
-#import mysql.connector as mc
+import mysql.connector as mc
 import ollama
 import json
 import string
@@ -10,7 +10,7 @@ def retrive_data(sql_query=None):
     conn = mc.connect(
         host="cscdata.centre.edu",
         user="db_agent_a2",        # change per team
-        password="your_password",  # your team's password
+        password="Wwe@6311",  # your team's password
         database="gravity_books"
     )
     # Initialize the cursor
@@ -151,18 +151,19 @@ def validate_sql(sql_query):
 
 def to_output(result, queries):
     # Converting result tuples to JSON-serializable lists
-    rows = [list(r) for r in result]
-    if not rows:
-        output = f"No results found for the query: {queries.get('clean_query', queries.get('sql'))}"
-        return output
+    full_result = ""
+    for row in result:
+        for col in row:
+          full_result += str(col) + " "
+        full_result += "\n"  
 
     prompt = (
         f"""You are an expert summarizer. Given the validated SQL query and its result set,
-        produce a single short direct sentence that clearly summarizes the findings.
-        Only output the summary sentence and nothing else.\n\n
+        produce a  short summary that clearly summarizes the findings.
         Validated SQL: {queries['sql']}\n
-        Cleaned user query: {queries.get['clean_query','']}\n
-        Result rows (JSON array of arrays): {json.dumps(rows)}\n"""
+        Cleaned user query: {queries['clean_query']}\n
+        Result : {full_result}\n
+        Example: “There are two books priced over $20: ‘Gravity’s Rainbow’ and ‘The Gravity of Grace.’”"""
     )
 
     try:
@@ -174,7 +175,7 @@ def to_output(result, queries):
         output = response['message']['content'].strip()
     except Exception:
         # Fallback short summary if LLM call fails
-        output = f"{len(rows)} rows returned for the query."
+        output = f"{full_result} rows returned for the query."
     return output
 
 def main():
@@ -186,17 +187,14 @@ def main():
         return
     user_input = user_input.translate(str.maketrans("", "", string.punctuation)).strip().lower()
     queries = nl_to_sql(user_input)
-    print("Generated SQL:", queries["sql"])
-    print()
-    print(queries)
+    #print("Generated SQL:", queries["sql"])
     is_valid = validate_sql(queries["sql"])
-    print(f"is valid sql query: {is_valid}")
+    #print(f"is valid sql query: {is_valid}")
     if not is_valid:
         print("Your query is safe or valid.")
         return
-    output = " successfully validated and executed the query."
-    #result = retrive_data(queries["sql"])
-    #output = to_output(result,queries)
+    result = retrive_data(queries["sql"])
+    output = to_output(result,queries)
     print("Output:", output)
 
 if __name__ == "__main__":
